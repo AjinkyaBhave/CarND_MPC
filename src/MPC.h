@@ -8,8 +8,10 @@ using namespace std;
 
 class MPC {
  public:
+  // State vector dimension
+  int n_states = 6;
+  // Constructor and destructor
   MPC();
-
   virtual ~MPC();
 
   // Solve the model given an initial state and polynomial coefficients.
