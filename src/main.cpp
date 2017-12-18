@@ -91,27 +91,44 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
-
-          /*
-          * TODO: Calculate steering angle and throttle using MPC.
-          *
-          * Both are in between [-1, 1].
-          *
-          */
+			 
+			 // Convert reference trajectory vector to VectorXd for polyfit
+			 double* pptsx = &ptsx[0];
+			 double* pptsy = &ptsy[0];
+			 Eigen::Map<Eigen::VectorXd> ptx(pptsx,6);
+			 Eigen::Map<Eigen::VectorXd> pty(pptsy,6);
+			 
+			 // fit a polynomial to the track x and y coordinates
+			 auto coeffs = polyfit(ptx,pty,3);
+			 // Calculate the cross track error
+			 double cte = polyeval(coeffs, px) - py;
+			 // Calculate the heading error
+			 double epsi = atan(coeffs[1]) - psi;
+			 
+			 // Create a state vector from simulator values
+			 Eigen::VectorXd state(6);
+			 state << px, py, psi, v, cte, epsi;
+			 			 
+          // Calculate steering angle and throttle using MPC.
+          // Both are in between [-1, 1].
           double steer_value;
           double throttle_value;
+			 
+			 auto vars = mpc.Solve(state, coeffs);
+			 steer_value = vars[0];
+			 throttle_value = vars[1];
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
-          msgJson["steering_angle"] = steer_value;
+          msgJson["steering_angle"] = steer_value/deg2rad(25);
           msgJson["throttle"] = throttle_value;
 
           //Display the MPC predicted trajectory 
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
 
-          //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
+          // add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
 
           msgJson["mpc_x"] = mpc_x_vals;
