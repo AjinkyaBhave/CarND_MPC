@@ -5,6 +5,7 @@
 #include "Eigen-3.3/Eigen/Core"
 
 using namespace std;
+#define MPH2mps 0.447
 
 class MPC {
  public:

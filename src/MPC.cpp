@@ -20,8 +20,8 @@ double dt = 0.1;
 //
 // This is the length from front to CoG that has a similar radius.
 const double Lf = 2.67;
-// Reference velocity around track in MPH
-double ref_v = 40;
+// Reference velocity around track in MPH converted to m/s
+double ref_v = MPH2mps*20;
 
 // The solver takes all the state variables and actuator
 // variables in a singular vector. Thus, we should to establish
@@ -53,21 +53,21 @@ class FG_eval {
 
     // Error states cost
 	 for (t = 0; t < N; t++) {
-		fg[0] += CppAD::pow(vars[cte_start + t], 2);
-		fg[0] += CppAD::pow(vars[epsi_start + t], 2);
-		fg[0] += CppAD::pow(ref_v - vars[v_start + t], 2);
+		fg[0] += 100*CppAD::pow(vars[cte_start + t], 2);
+		fg[0] += 1000*CppAD::pow(vars[epsi_start + t], 2);
+		fg[0] += 1*CppAD::pow(ref_v - vars[v_start + t], 2);
 	 }
 	 
 	 // Actuator magnitude cost
 	 for (t = 0; t < N-1; t++){
-		fg[0] += CppAD::pow(vars[delta_start + t], 2);
-		fg[0] += CppAD::pow(vars[a_start + t], 2);
+		fg[0] += 1*CppAD::pow(vars[delta_start + t], 2);
+		fg[0] += 1*CppAD::pow(vars[a_start + t], 2);
 	 }
 	 
 	 // Actuator rate cost
 	 for (t = 0; t < N-2; t++){
-		fg[0] += 100*CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-		fg[0] += 500*CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+		fg[0] += 1*CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+		fg[0] += 1*CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
 	 }
 	 
 	 //
@@ -85,22 +85,24 @@ class FG_eval {
 
     // Constraints for N-1 timesteps
     for (t = 1; t < N; t++) {
-      AD<double> x1 = vars[x_start + t];
+      // State at t+1
+		AD<double> x1 = vars[x_start + t];
 		AD<double> y1 = vars[y_start + t];
 		AD<double> psi1 = vars[psi_start + t];
 		AD<double> v1 = vars[v_start + t];
 		AD<double> cte1 = vars[cte_start + t];
       AD<double> epsi1 = vars[epsi_start + t];
-		
+		//State at t
 		AD<double> x0 = vars[x_start + t - 1];
 		AD<double> y0 = vars[y_start + t - 1];
       AD<double> psi0 = vars[psi_start + t - 1];
       AD<double> v0 = vars[v_start + t - 1];
 		AD<double> cte0 = vars[cte_start + t - 1];
       AD<double> epsi0 = vars[epsi_start + t - 1];
+		// Actuators at t
 		AD<double> delta0 = vars[delta_start + t - 1];
 		AD<double> a0 = vars[a_start + t - 1];
-		
+		// Error references at t
 		AD<double> f0 = coeffs[0] + coeffs[1]*x0 + coeffs[2]*x0*x0 + coeffs[3]*x0*x0*x0;
 		AD<double> psides0 = CppAD::atan(3*coeffs[3]*x0*x0 + 2*coeffs[2]*x0 + coeffs[1]);
 
@@ -240,11 +242,10 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // Return solution vector
   vector<double> result;
   // Return the steering and throttle control values for first timestep.
-  // Multiple steering value by -1 to be consistent with angle convention used in simulator.
-  result.push_back(-solution.x[delta_start]);
+  result.push_back(solution.x[delta_start]);
   result.push_back(solution.x[a_start]);
   
-	// Return x and y coordinates for 1-N-1 time steps
+	// Return x and y coordinates for 1 to N-1 time steps
 	for (i=1; i<N; i++){
 		result.push_back(solution.x[x_start+i]);
 		result.push_back(solution.x[y_start+i]);
