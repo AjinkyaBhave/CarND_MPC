@@ -67,11 +67,13 @@ Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
 
 int main() {
   uWS::Hub h;
-
-  // MPC is initialized here!
+   // Actuator latency in seconds
+  double delay = 0.1;
+  // MPC is initialized here
   MPC mpc;
+  
 
-  h.onMessage([&mpc](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  h.onMessage([&mpc, &delay](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -91,14 +93,25 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+			 double steer_value = j[1]["steering_angle"];
+			 double throttle_value = j[1]["throttle"];
+			 // Change the sign of steering to match vehicle kinematics model
+			 steer_value = -1*steer_value;
 			 
+			 // Convert speed units from MPH to m/s
+			 v = MPH2mps*v;
+			 // Predict initial state in vehicle frame after delay seconds
+			 v = v + throttle_value*delay;
+			 psi = psi + (v/2.67)*steer_value*delay;
+			 px = px+v*cos(psi)*delay;
+			 py = py+v*sin(psi)*delay;
+			 			 
 			 // Convert from global to vehicle coordinate frame
 			 for(size_t i = 0; i < ptsx.size(); i++) {
 				double shift_x = ptsx[i] - px;
 				double shift_y = ptsy[i] - py;
-
-			 ptsx[i] = (shift_x * cos(psi)+shift_y*sin(psi));
-			 ptsy[i] = (-shift_x * sin(psi)+shift_y*cos(0-psi));
+				ptsx[i] = (shift_x * cos(psi)+shift_y*sin(psi));
+				ptsy[i] = (-shift_x * sin(psi)+shift_y*cos(psi));
 			 }
 			 // Convert reference trajectory vector to VectorXd for polyfit
 			 double* pptsx = &ptsx[0];
@@ -108,31 +121,20 @@ int main() {
 			 // fit a polynomial to the track x and y coordinates
 			 auto coeffs = polyfit(ptx, pty, 3);
 			 
-			 /*// Calculate the cross track error
-			 double cte = polyeval(coeffs, px) - py;
-			 // Calculate the heading error
-			 double epsi = psi - atan(3*coeffs[3]*px*px + 2*coeffs[2]*px + coeffs[1]) ;*/
-			 
 			 // Calculate the cross track error in vehicle frame
 			 double cte = polyeval(coeffs, 0);
 			 // Calculate the heading error in vehicle frame
-			 double epsi = -atan(coeffs[1]) ;
-			 
-			 // Convert speed units from MPH to m/s
-			 v = MPH2mps*v;
-			 // Create a state vector from simulator values
+			 double epsi = -atan(coeffs[1]);
+			 			 
+			 // Create a state vector in vehicle frame from simulator values
 			 Eigen::VectorXd state(mpc.n_states);
 			 state << 0, 0, 0, v, cte, epsi;
 			 			 
-          // Calculate steering angle and throttle using MPC.
-          // Both are in between [-1, 1].
-          double steer_value;
-          double throttle_value;
-			 
 			 auto vars = mpc.Solve(state, coeffs);
 			 // Multiple steering value by -1 to be consistent with angle convention used in simulator.
 			 // Divide by deg2rad(25) to normalise steering range to [-1,1]
 			 steer_value = -vars[0]/deg2rad(25);
+			 // Throttle range is between [-1,1]
 			 throttle_value = vars[1];
 
           json msgJson;
@@ -176,7 +178,7 @@ int main() {
           std::cout << msg << std::endl;
           // Latency
           // The purpose is to mimic real driving conditions where
-          // the car does actuate the commands instantly.
+          // the car does not actuate the commands instantly.
           //
           // Feel free to play around with this value but should be to drive
           // around the track with 100ms latency.

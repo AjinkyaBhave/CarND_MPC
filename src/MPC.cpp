@@ -21,7 +21,7 @@ double dt = 0.1;
 // This is the length from front to CoG that has a similar radius.
 const double Lf = 2.67;
 // Reference velocity around track in MPH converted to m/s
-double ref_v = MPH2mps*20;
+double ref_v = MPH2mps*40;
 
 // The solver takes all the state variables and actuator
 // variables in a singular vector. Thus, we should to establish
@@ -55,18 +55,18 @@ class FG_eval {
 	 for (t = 0; t < N; t++) {
 		fg[0] += 100*CppAD::pow(vars[cte_start + t], 2);
 		fg[0] += 1000*CppAD::pow(vars[epsi_start + t], 2);
-		fg[0] += 1*CppAD::pow(ref_v - vars[v_start + t], 2);
+		fg[0] += 0.8*CppAD::pow(ref_v - vars[v_start + t], 2);
 	 }
 	 
 	 // Actuator magnitude cost
 	 for (t = 0; t < N-1; t++){
-		fg[0] += 1*CppAD::pow(vars[delta_start + t], 2);
+		fg[0] += 500*CppAD::pow(vars[delta_start + t], 2);
 		fg[0] += 1*CppAD::pow(vars[a_start + t], 2);
 	 }
 	 
 	 // Actuator rate cost
 	 for (t = 0; t < N-2; t++){
-		fg[0] += 1*CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+		fg[0] += 100*CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
 		fg[0] += 1*CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
 	 }
 	 
@@ -102,7 +102,7 @@ class FG_eval {
 		// Actuators at t
 		AD<double> delta0 = vars[delta_start + t - 1];
 		AD<double> a0 = vars[a_start + t - 1];
-		// Error references at t
+		// Reference error at t
 		AD<double> f0 = coeffs[0] + coeffs[1]*x0 + coeffs[2]*x0*x0 + coeffs[3]*x0*x0*x0;
 		AD<double> psides0 = CppAD::atan(3*coeffs[3]*x0*x0 + 2*coeffs[2]*x0 + coeffs[1]);
 
@@ -120,7 +120,7 @@ class FG_eval {
 //
 // MPC class definition implementation.
 //
-MPC::MPC() {}
+MPC::MPC() {n_states=6; n_actuators=2;}
 MPC::~MPC() {}
 
 vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
@@ -130,7 +130,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
   // Number of model variables (includes both states and inputs).
   // N timesteps == N - 1 actuations
-  size_t n_vars = N * n_states + (N - 1) * 2;
+  size_t n_vars = N * n_states + (N - 1) * n_actuators;
   // Number of constraints
   size_t n_constraints = N * n_states;
   
@@ -160,13 +160,21 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   Dvector vars_lowerbound(n_vars);
   Dvector vars_upperbound(n_vars);
   
-  // Set all non-actuators upper and lowerlimits
-  // to the max negative and positive values.
-  for (i = 0; i < delta_start; i++) {
+  // Set x and y limits to the max negative and positive values.
+  for (i = 0; i < psi_start; i++) {
     vars_lowerbound[i] = -1.0e19;
     vars_upperbound[i] = 1.0e19;
+  }  
+  // Set yaw magnitude limits
+  for (i = psi_start; i < v_start; i++) {
+    vars_lowerbound[i] = -M_PI;
+    vars_upperbound[i] = M_PI;
+  }  
+  // Set velocity limits
+  for (i = v_start; i < delta_start; i++) {
+    vars_lowerbound[i] = -MPH2mps*200;
+    vars_upperbound[i] = MPH2mps*200;
   }
-
   // The upper and lower limits of delta are set to -25 and 25
   // degrees (values in radians).
   for (i = delta_start; i < a_start; i++) {
@@ -174,7 +182,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
     vars_upperbound[i] = 0.436332;
   }
 
-  // Acceleration/decceleration upper and lower limits.
+  // Acceleration/deceleration upper and lower limits.
   for (i = a_start; i < n_vars; i++) {
     vars_lowerbound[i] = -1.0;
     vars_upperbound[i] = 1.0;

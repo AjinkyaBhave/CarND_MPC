@@ -10,7 +10,9 @@ using namespace std;
 class MPC {
  public:
   // State vector dimension
-  int n_states = 6;
+  int n_states;
+  // Number of actuators in vehicle
+  int n_actuators;
   // Constructor and destructor
   MPC();
   virtual ~MPC();
