@@ -55,3 +55,11 @@ The cost function with final tuned weights for the controller is implemented in 
 
 I fixed the weight for the velocity error at 0.8 to enable the controller to choose the best speed while navigating turns, while maintaining a higher speed on straight road sections. The reference speed was set at 40 MPH. The controller was able to navigate the track successfully till a reference speed of 45 MPH with the tuned weights. I have kept the speed at 40 MPH for the final submission.
 
+## Results
+I had submitted the project once before after testing it extensively on my machine with a reference speed of 40 MPH. For some reason, the same code caused the car to veer off the road on the reviewer's machine, probably because he/she has a slower machine. 
+
+To show that the MPC parameters work correctly on my machine, I have recorded a video of the original code working for two full laps of the track. The simulator settings were at Fastest with a resolution of 640x480. Higher resolution settings also work successfully. The link to the video is ![MPC at 40 MPH](./MPC_Result_AYB.webm).
+
+I have also incorporated the feedback from the reviewer regarding making the cost weights more optimised and I can now drive the track at 55 MPH successfully. I have recorded that video with the same simulator settings. The link to the video is ![MPC at 55 MPH](./MPC_Result_55MPH.webm).
+
+In case the code does not work on the reviewer's machine, please look at both the videos as proof that I have tuned and successfully run the controller based on the VBox-Simulator latency observed on my machine with the parameters tuned based on that delay. I am submitting the final project with the reference speed set to 40 MPH, just to be conservative. Except for changes in the cost function weights for [CTE, HE, Delta rate], the remaining code is identical to the original submission.
